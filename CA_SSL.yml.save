@@ -1,0 +1,66 @@
+---
+
+- hosts: server1
+  gather_facts: true
+  become: yes
+  become_user: root
+  pre_tasks:
+    - name: Install update (Ubuntu)
+      tags: always
+      apt:
+        update_cache: yes
+
+    - name: Install OpenSSL
+      apt:
+        name: openssl
+        state: present
+      become: true
+
+    - name: Install Python-Openssl
+      apt:
+        name: python3-openssl
+        state: present
+      become: true
+
+    - name: Install Easy_RSA
+      apt:
+        name: easy-rsa
+        state: present
+      become: true
+
+  tasks:
+    - name: Create CA directory
+      file:
+        path: /etc/ssl/roseann_ca
+        state: directory
+        mode: 0700
+
+    - name: Generate CA Private Key
+      openssl_privatekey:
+        path: /etc/ssl/roseann_ca/ra_private.key
+        size: 4096
+
+    - name: Generate CA Request Certificate
+      openssl_csr:
+        path: /etc/ssl/roseann_ca/ra_ca.csr
+        privatekey_path: /etc/ssl/roseann_ca/ra_private.key
+        common_name: "RoseAnn CA"
+        force: yes
+
+    - name: Self-Signed CA Certificate
+      openssl_certificate:
+        path: /etc/ssl/roseann_ca/ra_self.crt
+        privatekey_path: /etc/ssl/roseann_ca/ra_private.key
+        csr_path: /etc/ssl/roseann_ca/ra_ca.csr
+        provider: selfsignedS
+        force: true
+
+    - name: Collect keys and certificates from Server 1
+      fetch:
+        src: "/etc/ssl/roseann_ca/{{ item }}"
+        dest: "roseann_CA_SSL/"
+        flat: yes
+      with_items:
+        - ra_ca.csr
+        - ra_self.crt
+        - ra_private.key
